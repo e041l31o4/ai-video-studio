@@ -163,13 +163,16 @@ export default function App(){
         const a=clips[i],outputName='part_'+i+'.mp4';
         const inputName='source_'+i+'.'+(a.file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');
         await engine.writeFile(inputName,await fetchFile(a.file));
-        const duration=Math.max(.1,a.end-a.start),fadeIn=Math.min(duration,a.fadeIn||0),fadeOut=Math.min(duration,a.fadeOut||0);\n        const fadeFilters=[fadeIn>0?'fade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'fade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);\n        const vf=['scale='+width+':'+height+':force_original_aspect_ratio=decrease','pad='+width+':'+height+':(ow-iw)/2:(oh-ih)/2','fps=30',...fadeFilters,'format=yuv420p'].join(',');
+        const duration=Math.max(.1,a.end-a.start),fadeIn=Math.min(duration,a.fadeIn||0),fadeOut=Math.min(duration,a.fadeOut||0);
+        const fadeFilters=[fadeIn>0?'fade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'fade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
+        const vf=['scale='+width+':'+height+':force_original_aspect_ratio=decrease','pad='+width+':'+height+':(ow-iw)/2:(oh-ih)/2','fps=30',...fadeFilters,'format=yuv420p'].join(',');
         const args=a.kind==='image'?['-loop','1','-framerate','30','-i',inputName,'-t',String(Math.max(.1,a.end-a.start)),'-vf',vf,'-an','-c:v','libx264','-preset','ultrafast','-crf',quality==='4k'?'21':'23','-pix_fmt','yuv420p',outputName]:['-ss',String(a.start),'-i',inputName,'-t',String(Math.max(.1,a.end-a.start)),'-vf',vf,'-an','-c:v','libx264','-preset','ultrafast','-crf',quality==='4k'?'21':'23','-pix_fmt','yuv420p',outputName];
         setStatus('正在處理素材 '+(i+1)+' / '+clips.length+'…');
         const code=await engine.exec(args);if(code!==0)throw new Error('素材轉檔失敗');
         names.push(outputName);
         if(preserveOriginalAudio){
-          const audioName='audio_'+i+'.wav',duration=Math.max(.1,a.end-a.start);\n          const audioFades=[fadeIn>0?'afade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'afade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
+          const audioName='audio_'+i+'.wav',duration=Math.max(.1,a.end-a.start);
+          const audioFades=[fadeIn>0?'afade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'afade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
           let audioCode=1;
           if(a.kind==='video'){
             try{audioCode=await engine.exec(['-ss',String(a.start),'-i',inputName,'-t',String(duration),'-vn',...(audioFades.length?['-af',audioFades.join(',')]:[]),'-ac','2','-ar','44100','-c:a','pcm_s16le',audioName]);}
@@ -192,7 +195,8 @@ export default function App(){
         subtitleIndexes.push(1+i);
         finalArgs.push('-loop','1','-framerate','30','-i',pngName);
       }
-      let nextInput=1+validCues.length,originalIndex=-1;\n      const musicIndexes:number[]=[];
+      let nextInput=1+validCues.length,originalIndex=-1;
+      const musicIndexes:number[]=[];
       if(preserveOriginalAudio&&audioNames.length){
         await engine.writeFile('audio_concat.txt',new TextEncoder().encode(audioNames.map(n=>"file '"+n+"'").join('\n')));
         finalArgs.push('-f','concat','-safe','0','-i','audio_concat.txt');
