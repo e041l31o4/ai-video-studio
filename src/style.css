@@ -19,3 +19,15 @@
 .volumeControl{display:grid!important;grid-template-columns:1fr auto;gap:7px!important;align-items:center;color:#9eabc0!important}.volumeControl b{color:#dce4f7;font-size:10px}.volumeControl input{grid-column:1/-1;width:100%;accent-color:#8290ff;margin:0}
 
 .subtitleHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.subtitleHead label{margin-bottom:0}.subtitleHead .btn{white-space:nowrap}
+
+.stage{position:relative}
+.subtitleOverlay{position:absolute;left:8%;right:8%;z-index:2;max-width:84%;margin:auto;padding:6px 12px;border-radius:5px;text-align:center;font-weight:700;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
+.subtitleOverlay.top{top:9%}.subtitleOverlay.center{top:50%;transform:translateY(-50%)}.subtitleOverlay.bottom{bottom:9%}
+.subtitleStyle{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px;border:1px solid #2b3443;border-radius:7px;background:#101620;margin:10px 0}
+.subtitleStyle label{margin:0!important;display:flex!important;align-items:center;justify-content:space-between;gap:8px}
+.subtitleStyle label:first-child{grid-column:1/-1;display:grid!important;grid-template-columns:1fr auto}
+.subtitleStyle label:first-child input{grid-column:1/-1;width:100%;accent-color:#8290ff}
+.subtitleStyle input[type=color]{width:32px;height:24px;border:1px solid #39445a;background:transparent;padding:1px;border-radius:4px}
+.subtitleStyle select{max-width:100px;background:#0b111a;border:1px solid #30394a;border-radius:5px;color:#e8edf7;padding:5px;font:inherit;font-size:10px}
+.subtitleStyle .check{justify-content:flex-start!important}
+@media(max-width:680px){.subtitleStyle{grid-template-columns:1fr}.subtitleStyle label:first-child{grid-column:auto}}
