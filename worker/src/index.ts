@@ -4,7 +4,7 @@ export interface Env {
   ALLOWED_ORIGIN?: string;
 }
 const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8"}});
-function cors(origin:string,env:Env):Record<string,string>{const allowed=env.ALLOWED_ORIGIN||"https://e041l31o4.github.io";return origin===allowed?{"Access-Control-Allow-Origin":origin,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Vary":"Origin"}:{};}
+function cors(origin:string,env:Env):Record<string,string>{const allowed=env.ALLOWED_ORIGIN||"https://e041l31o4.github.io";return origin===allowed?{"Access-Control-Allow-Origin":origin,"Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Vary":"Origin"}:{};}
 async function gemini(env:Env,parts:any[]){
   const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="+encodeURIComponent(env.GEMINI_API_KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{temperature:.25,responseMimeType:"application/json"}})});
   const payload:any=await response.json();
@@ -19,8 +19,9 @@ export default {
   const headers=cors(origin,env);
   if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
   const respond=(data:unknown,status=200)=>{const response=json(data,status);const merged=new Headers(response.headers);Object.entries(headers).forEach(([k,v])=>merged.set(k,v));return new Response(response.body,{status:response.status,headers:merged});};
-  if(request.method!=="POST")return respond({error:"Method not allowed"},405);
   if(!headers["Access-Control-Allow-Origin"])return respond({error:"Origin not allowed"},403);
+  if(request.method==="GET"&&new URL(request.url).pathname.endsWith("/health"))return respond({ok:true,service:"ai-video-studio-storyboard",version:"1.1",ready:Boolean(env.GEMINI_API_KEY&&env.APP_TOKEN)});
+  if(request.method!=="POST")return respond({error:"Method not allowed"},405);
   if(!env.GEMINI_API_KEY||!env.APP_TOKEN)return respond({error:"Worker secrets are not configured"},503);
   if(request.headers.get("Authorization")!=="Bearer "+env.APP_TOKEN)return respond({error:"Unauthorized"},401);
   try{
