@@ -195,7 +195,7 @@ export default function App(){
         validCues.forEach((cue,i)=>{
           const output='vsub'+i;
           const from=Math.max(0,cue.start),to=Math.min(total,cue.end);
-          filters.push('['+previous+']['+subtitleIndexes[i]+':v]overlay=0:0:enable=\\'between(t,'+from.toFixed(3)+','+to.toFixed(3)+')\\'['+output+']');
+          filters.push("["+previous+"]["+subtitleIndexes[i]+":v]overlay=0:0:enable='between(t,"+from.toFixed(3)+","+to.toFixed(3)+")'["+output+"]");
           previous=output;
         });
         videoMap='['+previous+']';
