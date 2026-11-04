@@ -100,7 +100,7 @@ export default function App(){
   function jumpToCue(cue:Cue){
     let offset=0;
     const target=visualAssets.find(asset=>{const end=offset+Math.max(0,asset.end-asset.start);const hit=cue.start>=offset&&cue.start<=end; if(!hit)offset=end;return hit;});
-    if(target){setSelected(target.id);setPendingSeek(cue.start);setPreviewTime(cue.start);}
+    if(target){setSelected(target.id);setPendingSeek(target.kind==='video'?cue.start:null);setPreviewTime(cue.start);}
   }
   function addCue(){
     const start=cues.length?Math.max(...cues.map(c=>c.end)):0;
