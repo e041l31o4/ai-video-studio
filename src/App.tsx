@@ -48,7 +48,8 @@ export default function App(){
     const lines=subtitle.split('\n').map(s=>s.trim()).filter(Boolean);
     if(!lines.length){setStatus('請先輸入字幕，每行一段，再匯出 SRT。');return;}
     const fmt=(v:number)=>{const ms=Math.round(v*1000),h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000),x=ms%1000;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+','+String(x).padStart(3,'0')};
-    const srt=lines.map((line,i)=>(i+1)+'\n'+fmt(i*3)+' --> '+fmt((i+1)*3)+'\n'+line).join('\n\n');
+    const slot=Math.max(0.5,(total||lines.length*3)/lines.length);
+    const srt=lines.map((line,i)=>(i+1)+'\n'+fmt(i*slot)+' --> '+fmt(Math.min(total||lines.length*slot,(i+1)*slot))+'\n'+line).join('\n\n');
     const url=URL.createObjectURL(new Blob([srt],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='subtitles.srt';a.click();URL.revokeObjectURL(url);setStatus('SRT 字幕檔已匯出。');
   }
   async function exportMp4(){
