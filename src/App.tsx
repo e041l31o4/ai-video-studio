@@ -5,6 +5,31 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util';
 type Asset = { id:string; file:File; url:string; kind:'video'|'image'|'audio'; duration:number; start:number; end:number };
 type Cue = { id:string; text:string; start:number; end:number };
 const time = (n:number) => { if(!Number.isFinite(n)) return '00:00'; return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0'); };
+async function makeSubtitlePng(cue:Cue,width:number,height:number,size:number,color:string,position:string,background:boolean){
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('無法建立字幕畫布');
+  const fontSize=Math.max(18,Math.round(size*width/390)),lineHeight=Math.round(fontSize*1.35),maxWidth=width*.84;
+  ctx.font='700 '+fontSize+'px "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const lines:string[]=[];
+  cue.text.split(/\\n/).forEach(paragraph=>{
+    let line='';
+    for(const char of Array.from(paragraph)){
+      const next=line+char;
+      if(line&&ctx.measureText(next).width>maxWidth-48){lines.push(line);line=char;}else line=next;
+    }
+    lines.push(line);
+  });
+  const textWidth=Math.min(maxWidth,Math.max(1,...lines.map(line=>ctx.measureText(line).width)));
+  const blockHeight=lines.length*lineHeight,padX=Math.round(fontSize*.65),padY=Math.round(fontSize*.42);
+  let centerY=position==='top'?height*.12+blockHeight/2+padY:position==='center'?height/2:height*.88-blockHeight/2-padY;
+  const x=width/2,y=centerY;
+  if(background){const w=textWidth+padX*2,h=blockHeight+padY*2,r=Math.round(fontSize*.18);ctx.fillStyle='rgba(0,0,0,.68)';ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,r);ctx.fill();}
+  ctx.fillStyle=color;ctx.shadowColor='rgba(0,0,0,.85)';ctx.shadowBlur=Math.max(2,fontSize*.12);ctx.shadowOffsetY=1;
+  lines.forEach((line,i)=>ctx.fillText(line,x,y-blockHeight/2+lineHeight*(i+.5)));
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('字幕圖產生失敗')),'image/png'));
+  return new Uint8Array(await blob.arrayBuffer());
+}
 
 export default function App(){
   const [assets,setAssets]=useState<Asset[]>([]);
@@ -138,30 +163,60 @@ export default function App(){
           audioNames.push(audioName);
         }
       }
-      const list=names.map(n=>"file '"+n+"'").join('\n');
+      const list=names.map(n=>"file '"+n+"'").join('\\n');
       await engine.writeFile('concat.txt',new TextEncoder().encode(list));
-      setStatus('正在合併影片片段…');
+      setStatus('正在合併影片片段與字幕…');
       const finalArgs=['-f','concat','-safe','0','-i','concat.txt'];
-      let audioInputIndex=1;
+      const validCues=cues.filter(c=>c.text.trim()&&Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.end>c.start&&c.start<total).sort((a,b)=>a.start-b.start);
+      const subtitleIndexes:number[]=[];
+      for(let i=0;i<validCues.length;i++){
+        const cue=validCues[i],pngName='subtitle_'+i+'.png';
+        const png=await makeSubtitlePng(cue,width,height,subtitleSize,subtitleColor,subtitlePosition,subtitleBackground);
+        await engine.writeFile(pngName,png);
+        subtitleIndexes.push(1+i);
+        finalArgs.push('-loop','1','-framerate','30','-i',pngName);
+      }
+      let nextInput=1+validCues.length,originalIndex=-1,musicIndex=-1;
       if(preserveOriginalAudio&&audioNames.length){
-        await engine.writeFile('audio_concat.txt',new TextEncoder().encode(audioNames.map(n=>"file '"+n+"'").join('\n')));
+        await engine.writeFile('audio_concat.txt',new TextEncoder().encode(audioNames.map(n=>"file '"+n+"'").join('\\n')));
         finalArgs.push('-f','concat','-safe','0','-i','audio_concat.txt');
-        audioInputIndex=2;
+        originalIndex=nextInput++;
       }
       if(keepAudio&&soundtrack){
         const audioName='soundtrack.'+(soundtrack.file.name.split('.').pop()||'mp3').replace(/[^a-z0-9]/gi,'');
         await engine.writeFile(audioName,await fetchFile(soundtrack.file));
         finalArgs.push('-stream_loop','-1','-i',audioName);
-        const musicIndex=audioInputIndex;
-        if(preserveOriginalAudio&&audioNames.length){
-          finalArgs.push('-filter_complex',`[${audioInputIndex-1}:a]volume=${originalVolume/100}[orig];[${musicIndex}:a]volume=${musicVolume/100}[music];[orig][music]amix=inputs=2:duration=first:dropout_transition=2[aout]`,'-map','0:v:0','-map','[aout]');
-        }else finalArgs.push('-map','0:v:0','-map',musicIndex+':a:0','-filter:a','volume='+musicVolume/100);
-        finalArgs.push('-c:v','copy','-c:a','aac','-b:a','192k','-shortest');
-      }else if(preserveOriginalAudio&&audioNames.length){
-        finalArgs.push('-map','0:v:0','-map',(audioInputIndex-1)+':a:0','-filter:a','volume='+originalVolume/100,'-c:v','copy','-c:a','aac','-b:a','192k','-shortest');
-      }else finalArgs.push('-map','0:v:0','-an','-c:v','copy');
-      finalArgs.push('-movflags','+faststart','final.mp4');
-      const code=await engine.exec(finalArgs);if(code!==0)throw new Error('影片合併失敗');
+        musicIndex=nextInput++;
+      }
+      const filters:string[]=[];
+      let videoMap='0:v:0';
+      if(validCues.length){
+        let previous='0:v:0';
+        validCues.forEach((cue,i)=>{
+          const output='vsub'+i;
+          const from=Math.max(0,cue.start),to=Math.min(total,cue.end);
+          filters.push('['+previous+']['+subtitleIndexes[i]+':v]overlay=0:0:enable=\\'between(t,'+from.toFixed(3)+','+to.toFixed(3)+')\\'['+output+']');
+          previous=output;
+        });
+        videoMap='['+previous+']';
+      }
+      let audioMap='';
+      if(originalIndex>=0&&musicIndex>=0){
+        filters.push('['+originalIndex+':a]volume='+originalVolume/100+'[orig];['+musicIndex+':a]volume='+musicVolume/100+'[music];[orig][music]amix=inputs=2:duration=first:dropout_transition=2[aout]');
+        audioMap='[aout]';
+      }else if(originalIndex>=0){
+        filters.push('['+originalIndex+':a]volume='+originalVolume/100+'[aout]');audioMap='[aout]';
+      }else if(musicIndex>=0){
+        filters.push('['+musicIndex+':a]volume='+musicVolume/100+'[aout]');audioMap='[aout]';
+      }
+      if(filters.length)finalArgs.push('-filter_complex',filters.join(';'));
+      finalArgs.push('-map',videoMap);
+      if(audioMap)finalArgs.push('-map',audioMap);else finalArgs.push('-an');
+      if(validCues.length)finalArgs.push('-c:v','libx264','-preset','ultrafast','-crf',quality==='4k'?'21':'23','-pix_fmt','yuv420p');
+      else finalArgs.push('-c:v','copy');
+      if(audioMap)finalArgs.push('-c:a','aac','-b:a','192k');
+      finalArgs.push('-t',String(Math.max(.1,total)),'-movflags','+faststart','final.mp4');
+      const code=await engine.exec(finalArgs);if(code!==0)throw new Error('影片合併或字幕合成失敗');
       const data=await engine.readFile('final.mp4');
       const blob=new Blob([new Uint8Array(data as Uint8Array).buffer as ArrayBuffer],{type:'video/mp4'}),url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download='ai-video-studio-export.mp4';a.click();URL.revokeObjectURL(url);
@@ -174,7 +229,7 @@ export default function App(){
     <div className="layout"><aside className="sidebar"><div className="sideTitle">WORKSPACE</div><div className="nav active">▧　影片剪輯工作台</div><div className="nav" onClick={()=>setStatus('AI 腳本與自動分鏡：規劃於下一階段接入')}>✧　AI 腳本與分鏡</div><div className="nav" onClick={()=>setStatus('字幕辨識及時間軸編輯：規劃於下一階段接入')}>▤　字幕工作室</div><div className="engine"><i/> <b>本機影音引擎</b><small>{engineReady?'已載入':'輸出時啟動'}</small></div><p className="privacy">素材目前只在你的裝置中處理，不會自動上傳。</p></aside>
     <main className="main"><div className="heading"><div><div className="eyebrow">VIDEO EDITOR / 01</div><h1>影片剪輯工作台</h1><p>匯入素材、調整片段，製作你的下一支短影音。</p></div><span className="project">未命名專案　·　本機工作階段</span></div>
     <div className="editorGrid"><section className="panel preview"><div className="panelHead"><b>影片預覽</b><span>即時素材檢視</span></div><div className={'stage '+(ratio==='9:16'?'vertical':ratio==='1:1'?'square':'horizontal')}>{current?.kind==='video'?<video key={current.id} src={current.url} controls onTimeUpdate={e=>setPreviewTime(currentOffset+Math.max(0,e.currentTarget.currentTime-current.start))} onLoadedMetadata={e=>updateDuration(current.id,e.currentTarget.duration)}/>:current?.kind==='image'?<img src={current.url}/>:<div className="empty"><div className="orb">▶</div><b>準備開始創作</b><span>匯入影片或圖片素材</span><button className="btn primary" onClick={()=>input.current?.click()}>選擇素材</button></div>}{current&&cues.find(cue=>previewTime>=cue.start&&previewTime<=cue.end)&&<div className={'subtitleOverlay '+subtitlePosition} style={{fontSize:subtitleSize,color:subtitleColor,background:subtitleBackground?'rgba(0,0,0,.62)':'transparent'}}>{cues.find(cue=>previewTime>=cue.start&&previewTime<=cue.end)?.text}</div>}</div><div className="previewFoot"><span>預覽畫布</span><span>{ratio} · {quality==='4k'?'4K UHD':'1080P'}</span></div></section>
-    <section className="panel settings"><div className="panelHead"><b>專案設定</b><span className="tag">EDITOR</span></div><label>影片比例</label><div className="choices">{['9:16','16:9','1:1'].map(v=><button className={ratio===v?'choice selected':'choice'} key={v} onClick={()=>setRatio(v)}>{v}</button>)}</div><label>輸出畫質</label><div className="choices"><button className={quality==='1080'?'choice selected':'choice'} onClick={()=>setQuality('1080')}>1080P</button><button className={quality==='4k'?'choice selected':'choice'} onClick={()=>setQuality('4k')}>4K UHD</button></div><label className="check"><input type="checkbox" checked={preserveOriginalAudio} onChange={e=>setPreserveOriginalAudio(e.target.checked)}/> 保留原影片聲音</label>{preserveOriginalAudio&&<label className="volumeControl">原片音量 <b>{originalVolume}%</b><input type="range" min="0" max="150" step="5" value={originalVolume} onChange={e=>setOriginalVolume(Number(e.target.value))}/></label>}<label className="check"><input type="checkbox" checked={keepAudio} onChange={e=>setKeepAudio(e.target.checked)}/> 加入背景配樂（匯入音訊素材）</label>{keepAudio&&<label className="volumeControl">配樂音量 <b>{musicVolume}%</b><input type="range" min="0" max="100" step="5" value={musicVolume} onChange={e=>setMusicVolume(Number(e.target.value))}/></label>}<div className="subtitleHead"><label>字幕文案（每行一段）</label><button type="button" className="btn compact" onClick={()=>document.getElementById('srtInput')?.click()}>匯入 SRT</button></div><div className="subtitleStyle"><label>字體大小 <b>{subtitleSize}px</b><input type="range" min="14" max="48" step="1" value={subtitleSize} onChange={e=>setSubtitleSize(Number(e.target.value))}/></label><label>文字顏色 <input type="color" value={subtitleColor} onChange={e=>setSubtitleColor(e.target.value)}/></label><label>字幕位置 <select value={subtitlePosition} onChange={e=>setSubtitlePosition(e.target.value)}><option value="top">上方</option><option value="center">置中</option><option value="bottom">下方</option></select></label><label className="check"><input type="checkbox" checked={subtitleBackground} onChange={e=>setSubtitleBackground(e.target.checked)}/> 半透明底色</label></div><textarea value={subtitle} onChange={e=>syncSubtitle(e.target.value)} placeholder="每行輸入一段字幕，系統會先平均建立時間…" rows={3}/><div className="cueEditor"><div className="cueHeader"><b>字幕時間軸</b><span>{cues.length} 段字幕 <button type="button" onClick={addCue}>＋ 新增</button></span></div>{cues.map((cue,i)=><div className="cueRow" key={cue.id}><div className="cueIndex">{String(i+1).padStart(2,'0')}</div><div className="cueFields"><input className="cueText" value={cue.text} aria-label="字幕文字" onChange={e=>{patchCue(cue.id,{text:e.target.value});setSubtitle(old=>{const lines=old.split('\n');lines[i]=e.target.value;return lines.join('\n')})}}/><div className="cueTimes"><label>開始 <input type="number" min="0" step=".1" value={cue.start} onChange={e=>patchCue(cue.id,{start:Math.max(0,Number(e.target.value))})}/></label><label>結束 <input type="number" min="0" step=".1" value={cue.end} onChange={e=>patchCue(cue.id,{end:Math.max(0,Number(e.target.value))})}/></label><button type="button" onClick={()=>removeCue(cue.id)}>移除</button></div>{cue.end<=cue.start&&<small className="cueError">結束時間必須大於開始時間</small>}</div></div>)}</div><p className="note">輸入文案時先平均分配時間；你可以逐段修改起訖秒數。此版本匯出 SRT，字幕尚未燒錄進 MP4。</p><button className="btn compact" onClick={downloadSrt}>下載 SRT 字幕檔</button><div className="summary"><span>影片／圖片總長</span><b>{time(total)}</b></div><button className="btn primary full" disabled={busy||!assets.some(a=>a.kind!=='audio')} onClick={exportMp4}>{busy?'正在製作影片…':'開始輸出 MP4 ↗'}</button>{busy&&<div className="progress"><span style={{width:progress+'%'}}/></div>}</section></div>
+    <section className="panel settings"><div className="panelHead"><b>專案設定</b><span className="tag">EDITOR</span></div><label>影片比例</label><div className="choices">{['9:16','16:9','1:1'].map(v=><button className={ratio===v?'choice selected':'choice'} key={v} onClick={()=>setRatio(v)}>{v}</button>)}</div><label>輸出畫質</label><div className="choices"><button className={quality==='1080'?'choice selected':'choice'} onClick={()=>setQuality('1080')}>1080P</button><button className={quality==='4k'?'choice selected':'choice'} onClick={()=>setQuality('4k')}>4K UHD</button></div><label className="check"><input type="checkbox" checked={preserveOriginalAudio} onChange={e=>setPreserveOriginalAudio(e.target.checked)}/> 保留原影片聲音</label>{preserveOriginalAudio&&<label className="volumeControl">原片音量 <b>{originalVolume}%</b><input type="range" min="0" max="150" step="5" value={originalVolume} onChange={e=>setOriginalVolume(Number(e.target.value))}/></label>}<label className="check"><input type="checkbox" checked={keepAudio} onChange={e=>setKeepAudio(e.target.checked)}/> 加入背景配樂（匯入音訊素材）</label>{keepAudio&&<label className="volumeControl">配樂音量 <b>{musicVolume}%</b><input type="range" min="0" max="100" step="5" value={musicVolume} onChange={e=>setMusicVolume(Number(e.target.value))}/></label>}<div className="subtitleHead"><label>字幕文案（每行一段）</label><button type="button" className="btn compact" onClick={()=>document.getElementById('srtInput')?.click()}>匯入 SRT</button></div><div className="subtitleStyle"><label>字體大小 <b>{subtitleSize}px</b><input type="range" min="14" max="48" step="1" value={subtitleSize} onChange={e=>setSubtitleSize(Number(e.target.value))}/></label><label>文字顏色 <input type="color" value={subtitleColor} onChange={e=>setSubtitleColor(e.target.value)}/></label><label>字幕位置 <select value={subtitlePosition} onChange={e=>setSubtitlePosition(e.target.value)}><option value="top">上方</option><option value="center">置中</option><option value="bottom">下方</option></select></label><label className="check"><input type="checkbox" checked={subtitleBackground} onChange={e=>setSubtitleBackground(e.target.checked)}/> 半透明底色</label></div><textarea value={subtitle} onChange={e=>syncSubtitle(e.target.value)} placeholder="每行輸入一段字幕，系統會先平均建立時間…" rows={3}/><div className="cueEditor"><div className="cueHeader"><b>字幕時間軸</b><span>{cues.length} 段字幕 <button type="button" onClick={addCue}>＋ 新增</button></span></div>{cues.map((cue,i)=><div className="cueRow" key={cue.id}><div className="cueIndex">{String(i+1).padStart(2,'0')}</div><div className="cueFields"><input className="cueText" value={cue.text} aria-label="字幕文字" onChange={e=>{patchCue(cue.id,{text:e.target.value});setSubtitle(old=>{const lines=old.split('\n');lines[i]=e.target.value;return lines.join('\n')})}}/><div className="cueTimes"><label>開始 <input type="number" min="0" step=".1" value={cue.start} onChange={e=>patchCue(cue.id,{start:Math.max(0,Number(e.target.value))})}/></label><label>結束 <input type="number" min="0" step=".1" value={cue.end} onChange={e=>patchCue(cue.id,{end:Math.max(0,Number(e.target.value))})}/></label><button type="button" onClick={()=>removeCue(cue.id)}>移除</button></div>{cue.end<=cue.start&&<small className="cueError">結束時間必須大於開始時間</small>}</div></div>)}</div><p className="note">輸入文案時先平均分配時間；你可以逐段修改起訖秒數。匯出 MP4 時會依字幕時間軸、字體、顏色、位置與底色合成字幕。</p><button className="btn compact" onClick={downloadSrt}>下載 SRT 字幕檔</button><div className="summary"><span>影片／圖片總長</span><b>{time(total)}</b></div><button className="btn primary full" disabled={busy||!assets.some(a=>a.kind!=='audio')} onClick={exportMp4}>{busy?'正在製作影片…':'開始輸出 MP4 ↗'}</button>{busy&&<div className="progress"><span style={{width:progress+'%'}}/></div>}</section></div>
     <section className="panel timeline"><div className="panelHead"><div><b>素材與時間軸</b><span>{assets.length} 個素材</span></div><button className="btn compact" onClick={()=>input.current?.click()}>＋ 新增素材</button></div>{assets.length>0&&<div className="timelineBoard"><div className="ruler"><span>00:00</span><span>{time(total)}</span></div><div className="trackLabel">VIDEO / IMAGE</div><div className="trackLane">{visualAssets.map((a,i)=><button key={a.id} className={'clipBlock '+(selected===a.id?'active':'')} style={{width:Math.max(90,(Math.max(0,a.end-a.start)/Math.max(total,1))*100)+'%',flexGrow:Math.max(.2,a.end-a.start)}} onClick={()=>setSelected(a.id)} title={a.file.name}><span>{i+1}</span>{a.file.name}</button>)}</div>{assets.some(a=>a.kind==='audio')&&<><div className="trackLabel audioLabel">AUDIO</div><div className="trackLane audioLane">{assets.filter(a=>a.kind==='audio').map(a=><button key={a.id} className="audioBlock" onClick={()=>setSelected(a.id)}>♫　{a.file.name}</button>)}</div></>}</div>}{assets.length===0?<button className="dropzone" onClick={()=>input.current?.click()}><strong>↑</strong><b>拖曳素材到這裡，或點擊上傳</b><small>支援 MP4、MOV、WEBM、JPG、PNG、MP3、WAV；圖片預設 5 秒</small></button>:<div className="assetList">{assets.map((a,i)=><div className={'asset '+(selected===a.id?'chosen':'')} key={a.id} onClick={()=>setSelected(a.id)}><div className="assetIcon">{a.kind==='video'?'▶':a.kind==='image'?'▧':'♫'}</div><div className="assetBody"><b>{a.file.name}</b><small>{a.kind.toUpperCase()}　{a.duration?time(a.duration):'讀取片長中…'}</small>{a.kind!=='audio'&&<div className="trim"><span>起點</span><input type="number" min="0" max={a.duration||undefined} step=".1" value={a.start} onChange={e=>patch(a.id,{start:Math.max(0,Number(e.target.value))})}/><span>終點</span><input type="number" min={a.start} max={a.duration||undefined} step=".1" value={a.end} onChange={e=>patch(a.id,{end:Math.min(a.duration||Number(e.target.value),Math.max(a.start,Number(e.target.value)))})}/></div>}</div><div className="assetActions"><button onClick={e=>{e.stopPropagation();reorder(a.id,-1)}}>↑</button><button onClick={e=>{e.stopPropagation();reorder(a.id,1)}}>↓</button><button onClick={e=>{e.stopPropagation();remove(a.id)}}>×</button></div></div>)}</div>}</section>
     <div className="status"><i/> {status}</div></main></div>
     <input ref={input} type="file" hidden multiple accept="video/*,image/*,audio/*" onChange={e=>importFiles(e.target.files)}/>
