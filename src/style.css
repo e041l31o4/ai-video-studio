@@ -103,3 +103,5 @@
 .visualLane .clipBlock{position:absolute;top:2px;bottom:2px;min-width:0;max-width:none;flex:none;height:auto}
 .visualLane .clipBlock span{vertical-align:middle}
 @media(max-width:680px){.visualLane{height:43px;min-height:43px}.visualLane .clipBlock{font-size:8px;padding-left:18px;padding-right:18px}}
+
+.visualTrackGroup{min-width:0}.visualTrackLabel{margin:7px 0 4px;color:#a9b7d6;font-size:9px;font-weight:700;letter-spacing:.14em}.visualTrackGroup:nth-of-type(2) .visualLane{border-color:#394d78}.visualTrackGroup:nth-of-type(3) .visualLane{border-color:#594a83}.visualTrackGroup:nth-of-type(4) .visualLane{border-color:#78508a}.fadeControls select{background:#0b111a;border:1px solid #39465b;border-radius:4px;color:#e8edf7;padding:4px;font:inherit;font-size:9px;max-width:110px}
