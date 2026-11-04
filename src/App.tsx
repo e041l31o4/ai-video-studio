@@ -88,7 +88,7 @@ export default function App(){
   },[selected,current?.id,current?.kind,previewTime,total,assets]);
   useEffect(()=>{const move=(event:PointerEvent)=>{const drag=audioTrimDrag.current;if(!drag)return;const delta=(event.clientX-drag.x)/Math.max(1,drag.width)*Math.max(total,.1);if(drag.edge==='left'){const start=Math.max(0,Math.min(drag.end-.1,drag.start+delta));patch(drag.id,{start:Number(start.toFixed(2))});}else{const end=Math.max(drag.start+.1,Math.min(assets.find(a=>a.id===drag.id)?.duration||Infinity,drag.end+delta));patch(drag.id,{end:Number(end.toFixed(2))});}};const up=()=>{audioTrimDrag.current=null;};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);return()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};},[total,assets]);
   useEffect(()=>{let cancelled=false;const pending=assets.filter(a=>a.kind==='audio'&&!waveforms[a.id]&&a.file.size<80*1024*1024);if(!pending.length)return;const Context=window.AudioContext||(window as any).webkitAudioContext;if(!Context)return;const context=new Context();void Promise.all(pending.map(async asset=>{try{const decoded=await context.decodeAudioData(await asset.file.arrayBuffer());const channel=decoded.getChannelData(0),bins=180,step=Math.max(1,Math.floor(channel.length/bins)),peaks:number[]=[];for(let i=0;i<bins;i++){let peak=0;for(let j=i*step;j<Math.min(channel.length,(i+1)*step);j++)peak=Math.max(peak,Math.abs(channel[j]));peaks.push(peak);}return [asset.id,peaks] as const;}catch{return [asset.id,[]] as const;}})).then(results=>{if(!cancelled)setWaveforms(old=>({...old,...Object.fromEntries(results)}));}).finally(()=>{void context.close();});return()=>{cancelled=true;};},[assets]);
-  useEffect(()=>{if(pendingSeek!==null&&current?.kind==='video'&&videoRef.current){const localTime=Math.max(current.start,Math.min(current.end,current.start+pendingSeek-currentOffset));videoRef.current.currentTime=localTime;setPreviewTime(pendingSeek);setPendingSeek(null);}},[pendingSeek,current?.id,current?.start,current?.end,currentOffset]);
+  useEffect(()=>{if(pendingSeek===null||!current)return;if(current.kind==='video'&&videoRef.current){const localTime=Math.max(current.start,Math.min(current.end,current.start+pendingSeek-currentOffset));videoRef.current.currentTime=localTime;}setPreviewTime(pendingSeek);setPendingSeek(null);},[pendingSeek,current?.id,current?.kind,current?.start,current?.end,currentOffset]);
   useEffect(()=>()=>assets.forEach(a=>URL.revokeObjectURL(a.url)),[]);
 
   async function saveProject(){
@@ -204,7 +204,7 @@ export default function App(){
   function jumpToCue(cue:Cue){
     let offset=0;
     const target=visualAssets.find(asset=>{const end=offset+Math.max(0,asset.end-asset.start);const hit=cue.start>=offset&&cue.start<=end; if(!hit)offset=end;return hit;});
-    if(target){setSelected(target.id);setPendingSeek(target.kind==='video'?cue.start:null);setPreviewTime(cue.start);}
+    if(target){setSelected(target.id);setPendingSeek(cue.start);}
   }
   function addCue(){
     const start=cues.length?Math.max(...cues.map(c=>c.end)):0;
