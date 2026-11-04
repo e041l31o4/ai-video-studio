@@ -293,13 +293,16 @@ export default {
       if (new Set(assets.map(asset => asset.id)).size !== assets.length) return respond({ error: "素材識別碼重複，請重新匯入影片。" }, 400);
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       if (totalBytes > MAX_TOTAL_BYTES) return respond({ error: "全部影片合計不可超過 45MB，請分批或壓縮素材後再分析。" }, 413);
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        if (file.size > MAX_FILE_BYTES) return respond({ error: "單段影片超過 12MB inline 分析限制：" + file.name }, 413);
+        if (!file.type.startsWith("video/")) return respond({ error: "不支援的影片格式：" + file.name }, 400);
+        if (assets[index].mimeType && assets[index].mimeType !== file.type) return respond({ error: "影片格式資訊不一致：" + file.name }, 400);
+      }
       const id = crypto.randomUUID();
       const storedFiles: StoredFile[] = [];
       for (let index = 0; index < files.length; index++) {
         const file = files[index];
-        if (file.size > MAX_FILE_BYTES) return respond({ error: "單段影片超過 12MB inline 分析限制：" + file.name, }, 413);
-        if (!file.type.startsWith("video/")) return respond({ error: "不支援的影片格式：" + file.name }, 400);
-        if (assets[index].mimeType && assets[index].mimeType !== file.type) return respond({ error: "影片格式資訊不一致：" + file.name }, 400);
         const key = "jobs/" + id + "/" + index + "-" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
         await env.STORYBOARD_MEDIA.put(key, await file.arrayBuffer());
         uploadedKeys.push(key);
