@@ -114,7 +114,7 @@ export default function App(){
   useEffect(()=>()=>assets.forEach(a=>URL.revokeObjectURL(a.url)),[]);
 
   async function testAIConnection(){
-    let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+    const endpoint=aiEndpoint.trim().replace(/\/+$/,'');
     if(!endpoint){setStatus('請先輸入 Cloudflare Worker 網址。');return;}
     setStoryBusy(true);setStatus('正在測試 AI 後端連線…');
     try{
@@ -135,7 +135,7 @@ export default function App(){
     if(uploadBytes>45*1024*1024){setStatus('全部影片合計超過 45MB，請分批或壓縮素材後再分析。');return;}
     if(!aiEndpoint.trim()){setStatus('尚未設定 AI 分析服務網址。請先部署 AI 後端，再填入 API Endpoint；目前不會假裝已分析影片內容。');return;}
     if(!aiAccessToken.trim()){setStatus('請輸入 Worker APP_TOKEN，這是 AI 後端的存取驗證。');return;}
-    let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+    const endpoint=aiEndpoint.trim();
     setStoryBusy(true);setStatus('正在上傳全部影片，交由 AI 分析畫面與語音…');
     try{
       const form=new FormData();
@@ -304,7 +304,7 @@ export default function App(){
   async function importSrt(file:File|null){
     if(!file)return;
     const raw=await file.text();
-    let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+    const blocks=raw.replace(/\r/g,'').trim().split(/\n\s*\n/);
     const parsed:Cue[]=[];
     for(const block of blocks){
       const lines=block.split('\n');
@@ -314,7 +314,7 @@ export default function App(){
       if(!match)continue;
       const toSeconds=(h:string,m:string,s:string,ms:string)=>Number(h)*3600+Number(m)*60+Number(s)+Number(ms)/1000;
       const start=toSeconds(match[1],match[2],match[3],match[4]),end=toSeconds(match[5],match[6],match[7],match[8]);
-      let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+      const text=lines.slice(lines.indexOf(timeLine)+1).join('\n').replace(/<[^>]+>/g,'').trim();
       if(text&&end>start)parsed.push({id:crypto.randomUUID(),text,start,end});
     }
     if(!parsed.length){setStatus('找不到有效的 SRT 字幕內容，請確認檔案格式。');return;}
@@ -347,7 +347,7 @@ export default function App(){
       const audioNames:string[]=[];
       for(let i=0;i<clips.length;i++){
         const a=clips[i],outputName='part_'+i+'.mp4';
-        let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+        const inputName='source_'+i+'.'+(a.file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');
         await engine.writeFile(inputName,await fetchFile(a.file));
         const duration=Math.max(.1,a.end-a.start),fadeIn=Math.min(duration,a.fadeIn||0),fadeOut=Math.min(duration,a.fadeOut||0);
         const fadeFilters=[fadeIn>0?'fade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'fade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
@@ -385,7 +385,7 @@ export default function App(){
       if(preserveOriginalAudio&&audioNames.length){for(const name of audioNames){finalArgs.push('-i',name);originalIndexes.push(nextInput++);}}
       if(keepAudio&&soundtracks.length){
         for(let i=0;i<soundtracks.length;i++){
-          let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
+          const soundtrack=soundtracks[i],audioName='soundtrack_'+i+'.'+(soundtrack.file.name.split('.').pop()||'mp3').replace(/[^a-z0-9]/gi,'');
           await engine.writeFile(audioName,await fetchFile(soundtrack.file));
           finalArgs.push('-stream_loop','-1','-ss',String(Math.max(0,soundtrack.start)),'-i',audioName);
           musicIndexes.push(nextInput++);
