@@ -128,15 +128,21 @@ export default function App(){
   async function generateStoryboard(){
     const videos=assets.filter(a=>a.kind==='video'&&a.duration>0);
     if(!videos.length){setStatus('請先匯入至少一段影片，並等待讀取完成片長。');return;}
+    if(videos.length>12){setStatus('單次最多分析 12 段影片，請先減少素材數量。');return;}
+    const oversized=videos.find(asset=>asset.file.size>12*1024*1024);
+    if(oversized){setStatus('影片「'+oversized.file.name+'」超過單段 12MB 限制，請先壓縮或切成較小片段。');return;}
+    const uploadBytes=videos.reduce((sum,asset)=>sum+asset.file.size,0);
+    if(uploadBytes>45*1024*1024){setStatus('全部影片合計超過 45MB，請分批或壓縮素材後再分析。');return;}
     if(!aiEndpoint.trim()){setStatus('尚未設定 AI 分析服務網址。請先部署 AI 後端，再填入 API Endpoint；目前不會假裝已分析影片內容。');return;}
     if(!aiAccessToken.trim()){setStatus('請輸入 Worker APP_TOKEN，這是 AI 後端的存取驗證。');return;}
+    const endpoint=aiEndpoint.trim().replace(/\\/+$/,'');
     setStoryBusy(true);setStatus('正在上傳全部影片，交由 AI 分析畫面與語音…');
     try{
       const form=new FormData();
       form.append('prompt',storyPrompt);form.append('targetDuration',String(storyDuration));form.append('platform',storyPlatform);form.append('style',storyStyle);
       form.append('assets',JSON.stringify(videos.map(a=>({id:a.id,name:a.file.name,duration:a.duration,mimeType:a.file.type}))));
       videos.forEach((asset,index)=>form.append('videos',asset.file,asset.file.name));
-      const response=await fetch(aiEndpoint.trim(),{method:'POST',headers:aiAccessToken.trim()?{Authorization:'Bearer '+aiAccessToken.trim()}:undefined,body:form});
+      const response=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+aiAccessToken.trim()},body:form});
       if(!response.ok)throw new Error('AI 服務回應 '+response.status+'：'+(await response.text()).slice(0,240));
       const data=await response.json();
       if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('AI 回傳格式錯誤：找不到 scenes 分鏡陣列。');
