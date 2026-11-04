@@ -64,7 +64,7 @@ Deploy it from the `worker` directory with Wrangler:
 3. Run `wrangler deploy`.
 4. Paste the resulting `workers.dev` URL and the same APP_TOKEN into the AI Storyboard panel.
 
-The included first implementation accepts up to 12 video files, with a 12 MB per-file and 45 MB combined upload limit. It analyzes each video separately, then generates a combined storyboard. Larger files need a future resumable upload / Gemini Files API implementation. Cloudflare Worker deployment and Gemini credentials are external prerequisites; GitHub Pages cannot host private API secrets.
+The current implementation accepts up to 12 video files, with a 12 MB per-file and 45 MB combined upload limit. The browser uploads the files to temporary R2 storage, creates a Durable Object-backed background job, and receives a job ID immediately. The Worker analyzes each video sequentially, records progress, generates a combined storyboard, and removes temporary R2 media after completion. The frontend polls the job endpoint and loads the finished storyboard. This removes the long Gemini analysis from the original upload request, but the initial browser-to-Worker upload is still a single request; resumable/chunked uploads and Gemini Files API support remain future work. Cloudflare Worker deployment, an R2 bucket, Durable Objects and Gemini credentials are external prerequisites; GitHub Pages cannot host private API secrets.
 
 ## Deploy with GitHub Actions
 
@@ -79,8 +79,16 @@ The included first implementation accepts up to 12 video files, with a 12 MB per
 4. Run **Actions → Deploy AI Storyboard Worker → Run workflow**. The deployment log prints the Worker URL (usually `https://ai-video-studio-storyboard.<subdomain>.workers.dev`).
 5. Open the deployed editor, open AI 腳本與分鏡, paste that Worker URL and the same APP_TOKEN into the two fields.
 
-The Worker currently performs sequential per-video analysis and then one combined edit-plan request. A batch of many long clips can take time and incur Gemini API charges. The first release is deliberately capped at 12 clips / 12 MB each / 45 MB total. It does not yet provide resumable uploads or background job progress. Cloudflare Worker CPU limits and request duration depend on the Cloudflare plan; use a paid Workers plan for realistic multi-clip production testing.
+The Worker performs sequential per-video analysis and then one combined edit-plan request in a Durable Object alarm, independent of the browser upload request. It is deliberately capped at 12 clips / 12 MB each / 45 MB total. Each job exposes `GET /jobs/{jobId}` for status and progress; the same Bearer APP_TOKEN is required. Temporary source videos are stored in R2 and deleted when processing ends. It does not yet provide resumable/chunked uploads, cancellation, or user-facing job history. Gemini API charges still apply, and long individual video analysis may be subject to provider limits.
 
 ## Health check
 
 After deploying, open `https://<your-worker>.workers.dev/health` in a browser. A successful response includes `ok: true`; `ready: true` means both Worker secrets are present. The editor also includes **測試 AI 後端連線** beside the endpoint settings. This check verifies Worker reachability and secret presence; it does not spend Gemini credits or run a video analysis.
+
+
+## Background job API (Worker v2)
+
+- `POST /`: authenticated multipart upload; returns HTTP 202 with `{ jobId, status: "queued" }`.
+- `GET /jobs/{jobId}`: authenticated status polling. Status is `queued`, `processing`, `completed`, or `failed`. During processing, `progress`, `total`, `currentFile`, and `message` are returned. Completed jobs include `result.scenes`, `result.warnings`, and `result.overallScript`.
+- Background execution uses a Durable Object alarm. Temporary media is stored in the `ai-video-studio-media` R2 bucket and deleted after success or failure.
+- The deployment workflow attempts to create the R2 bucket before deployment. The Cloudflare account must permit R2 bucket creation and Durable Objects. If the bucket already exists, the create step is allowed to continue and deployment uses the existing bucket.
