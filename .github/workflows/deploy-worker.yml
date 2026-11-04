@@ -13,6 +13,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
           command: r2 bucket create ai-video-studio-media
         continue-on-error: true
       - name: Deploy Cloudflare Worker
