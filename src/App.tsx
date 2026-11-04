@@ -114,7 +114,7 @@ export default function App(){
   useEffect(()=>()=>assets.forEach(a=>URL.revokeObjectURL(a.url)),[]);
 
   async function testAIConnection(){
-    const endpoint=aiEndpoint.trim().replace(/\/+$/,'');
+    let endpoint=aiEndpoint.trim();while(endpoint.endsWith('/'))endpoint=endpoint.slice(0,-1);
     if(!endpoint){setStatus('請先輸入 Cloudflare Worker 網址。');return;}
     setStoryBusy(true);setStatus('正在測試 AI 後端連線…');
     try{
