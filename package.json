@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:worker": "tsc --noEmit --target ES2022 --module ESNext --lib ES2022,DOM --skipLibCheck worker/src/index.ts"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",
