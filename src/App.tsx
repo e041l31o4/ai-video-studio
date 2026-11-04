@@ -128,7 +128,10 @@ export default function App(){
         if(preserveOriginalAudio){
           const audioName='audio_'+i+'.wav',duration=Math.max(.1,a.end-a.start);
           let audioCode=1;
-          if(a.kind==='video')audioCode=await engine.exec(['-ss',String(a.start),'-i',inputName,'-t',String(duration),'-vn','-ac','2','-ar','44100','-c:a','pcm_s16le',audioName]);
+          if(a.kind==='video'){
+            try{audioCode=await engine.exec(['-ss',String(a.start),'-i',inputName,'-t',String(duration),'-vn','-ac','2','-ar','44100','-c:a','pcm_s16le',audioName]);}
+            catch{audioCode=1;}
+          }
           if(a.kind==='image'||audioCode!==0)await engine.writeFile(audioName,silentWav(duration));
           audioNames.push(audioName);
         }
