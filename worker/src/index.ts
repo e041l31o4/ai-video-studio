@@ -245,7 +245,8 @@ export default {
       return headers["Access-Control-Allow-Origin"] ? new Response(null, { status: 204, headers }) : new Response(null, { status: 403 });
     }
     const url = new URL(request.url);
-    const pathname = url.pathname.replace(/\\/$/, "");
+    let pathname = url.pathname;
+    if (pathname.endsWith('/')) pathname = pathname.slice(0, -1);
     const isHealthCheck = request.method === "GET" && pathname.endsWith("/health");
     // Health is intentionally public for deployment diagnostics; all media/job routes remain origin- and token-protected.
     if (!headers["Access-Control-Allow-Origin"] && !isHealthCheck) return respond({ error: "Origin not allowed" }, 403);
