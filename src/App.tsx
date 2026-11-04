@@ -26,6 +26,7 @@ export default function App(){
     if(!list)return;
     const next=Array.from(list).filter(f=>/^(video|image|audio)\//.test(f.type)).map(file=>({id:crypto.randomUUID(),file,url:URL.createObjectURL(file),kind:(file.type.startsWith('video/')?'video':file.type.startsWith('image/')?'image':'audio') as Asset['kind'],duration:0,start:0,end:0}));
     setAssets(old=>[...old,...next]); if(next[0])setSelected(next[0].id);
+    next.filter(a=>a.kind==='video').forEach(a=>{const probe=document.createElement('video');probe.preload='metadata';probe.src=a.url;probe.onloadedmetadata=()=>updateDuration(a.id,probe.duration);});
     setStatus(next.length?'已匯入 '+next.length+' 個素材':'沒有找到支援的素材格式');
   }
   function updateDuration(id:string,duration:number){setAssets(old=>old.map(a=>a.id===id?{...a,duration,end:a.end||duration}:a));}
