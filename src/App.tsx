@@ -33,7 +33,7 @@ export default function App(){
   function reorder(id:string,step:number){setAssets(old=>{const i=old.findIndex(a=>a.id===id),j=i+step;if(i<0||j<0||j>=old.length)return old;const copy=[...old];[copy[i],copy[j]]=[copy[j],copy[i]];return copy;});}
   function remove(id:string){setAssets(old=>{const a=old.find(x=>x.id===id);if(a)URL.revokeObjectURL(a.url);return old.filter(x=>x.id!==id)});if(selected===id)setSelected('');}
   async function loadEngine(){
-    if(ffmpeg.current?.loaded)return ffmpeg.current;
+    if(ffmpeg.current)return ffmpeg.current;
     const engine=new FFmpeg();
     engine.on('log',({message})=>setStatus(message.slice(-100)));
     engine.on('progress',({progress:p})=>setProgress(Math.min(99,Math.round(p*100))));
@@ -68,7 +68,7 @@ export default function App(){
       const finalArgs=['-f','concat','-safe','0','-i','concat.txt','-c','copy','-movflags','+faststart','final.mp4'];
       const code=await engine.exec(finalArgs);if(code!==0)throw new Error('影片合併失敗');
       const data=await engine.readFile('final.mp4');
-      const blob=new Blob([data],{type:'video/mp4'}),url=URL.createObjectURL(blob);
+      const blob=new Blob([new Uint8Array(data as Uint8Array).buffer as ArrayBuffer],{type:'video/mp4'}),url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download='ai-video-studio-export.mp4';a.click();URL.revokeObjectURL(url);
       setProgress(100);setStatus('MP4 輸出完成，已開始下載。');
     }catch(err){console.error(err);setStatus('輸出失敗：可能是素材編碼不相容或裝置記憶體不足。請先縮短影片並嘗試 1080P。');}
