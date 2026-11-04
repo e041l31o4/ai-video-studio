@@ -12,7 +12,7 @@ async function makeSubtitlePng(cue:Cue,width:number,height:number,size:number,co
   ctx.font='700 '+fontSize+'px "Noto Sans TC", "Microsoft JhengHei", sans-serif';
   ctx.textAlign='center';ctx.textBaseline='middle';
   const lines:string[]=[];
-  cue.text.split(/\\n/).forEach(paragraph=>{
+  cue.text.split(/\n/).forEach(paragraph=>{
     let line='';
     for(const char of Array.from(paragraph)){
       const next=line+char;
