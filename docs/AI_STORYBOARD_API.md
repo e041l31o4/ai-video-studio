@@ -80,3 +80,7 @@ The included first implementation accepts up to 12 video files, with a 12 MB per
 5. Open the deployed editor, open AI 腳本與分鏡, paste that Worker URL and the same APP_TOKEN into the two fields.
 
 The Worker currently performs sequential per-video analysis and then one combined edit-plan request. A batch of many long clips can take time and incur Gemini API charges. The first release is deliberately capped at 12 clips / 12 MB each / 45 MB total. It does not yet provide resumable uploads or background job progress. Cloudflare Worker CPU limits and request duration depend on the Cloudflare plan; use a paid Workers plan for realistic multi-clip production testing.
+
+## Health check
+
+After deploying, open `https://<your-worker>.workers.dev/health` in a browser. A successful response includes `ok: true`; `ready: true` means both Worker secrets are present. The editor also includes **測試 AI 後端連線** beside the endpoint settings. This check verifies Worker reachability and secret presence; it does not spend Gemini credits or run a video analysis.
