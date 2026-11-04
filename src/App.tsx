@@ -163,7 +163,7 @@ export default function App(){
           audioNames.push(audioName);
         }
       }
-      const list=names.map(n=>"file '"+n+"'").join('\\n');
+      const list=names.map(n=>"file '"+n+"'").join('\n');
       await engine.writeFile('concat.txt',new TextEncoder().encode(list));
       setStatus('正在合併影片片段與字幕…');
       const finalArgs=['-f','concat','-safe','0','-i','concat.txt'];
@@ -178,7 +178,7 @@ export default function App(){
       }
       let nextInput=1+validCues.length,originalIndex=-1,musicIndex=-1;
       if(preserveOriginalAudio&&audioNames.length){
-        await engine.writeFile('audio_concat.txt',new TextEncoder().encode(audioNames.map(n=>"file '"+n+"'").join('\\n')));
+        await engine.writeFile('audio_concat.txt',new TextEncoder().encode(audioNames.map(n=>"file '"+n+"'").join('\n')));
         finalArgs.push('-f','concat','-safe','0','-i','audio_concat.txt');
         originalIndex=nextInput++;
       }
