@@ -5,3 +5,15 @@ workers_dev = true
 
 [vars]
 ALLOWED_ORIGIN = "https://e041l31o4.github.io"
+
+[[r2_buckets]]
+binding = "STORYBOARD_MEDIA"
+bucket_name = "ai-video-studio-media"
+
+[[durable_objects.bindings]]
+name = "STORYBOARD_JOBS"
+class_name = "StoryboardJob"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StoryboardJob"]
