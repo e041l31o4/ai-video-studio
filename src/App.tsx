@@ -121,7 +121,7 @@ export default function App(){
       const response=await fetch(endpoint+'/health');
       const data=await response.json();
       if(!response.ok||!data.ok)throw new Error(data.error||'健康檢查未通過');
-      setStatus(data.ready?'AI 後端連線正常，Worker 與必要 Secrets 已就緒。':'Worker 已連線，但尚未設定 GEMINI_API_KEY 或 APP_TOKEN。');
+      setStatus(data.ready?'AI 後端連線正常，Worker 與必要 Secrets 已就緒。':'Worker 已連線，但 Gemini Secrets 或 R2／Durable Objects 儲存設定尚未就緒。');
     }catch(error){setStatus('後端連線失敗：'+(error instanceof Error?error.message:'請確認網址、部署狀態與 CORS 設定。'));}
     finally{setStoryBusy(false);}
   }
