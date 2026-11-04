@@ -53,3 +53,15 @@ The frontend validates the returned asset IDs and source time ranges, allows man
 ## Current implementation boundary
 
 The frontend workspace and synchronous multipart adapter are implemented. An actual AI backend/provider is not deployed by GitHub Pages. Until a private backend is configured, the UI must not claim that visual understanding, transcription or automatic highlight selection has occurred.
+
+## Included Cloudflare Worker
+
+A Gemini-powered Worker implementation is included at `worker/src/index.ts`.
+
+Deploy it from the `worker` directory with Wrangler:
+1. Install Wrangler and authenticate with your Cloudflare account.
+2. Set secrets: `wrangler secret put GEMINI_API_KEY` and `wrangler secret put APP_TOKEN`.
+3. Run `wrangler deploy`.
+4. Paste the resulting `workers.dev` URL and the same APP_TOKEN into the AI Storyboard panel.
+
+The included first implementation accepts up to 12 video files, with a 15 MB per-file inline limit. It analyzes each video separately, then generates a combined storyboard. Larger files need a future resumable upload / Gemini Files API implementation. Cloudflare Worker deployment and Gemini credentials are external prerequisites; GitHub Pages cannot host private API secrets.
