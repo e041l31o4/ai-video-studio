@@ -22,6 +22,9 @@ jobs:
       - run: npm run build
       - name: Type-check Cloudflare Worker
         run: npm run check:worker
+      - name: Validate Wrangler config and Worker bundle
+        working-directory: worker
+        run: npx --yes wrangler@4 deploy --dry-run --outdir ../.wrangler-dry-run
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
