@@ -47,11 +47,11 @@ The frontend validates the returned asset IDs and source time ranges, allows man
 - Return CORS headers for the deployed Pages origin.
 - Do not train on or retain customer media unless the user explicitly consents.
 - Provide progress/status endpoints for long uploads and analysis jobs in a production implementation.
-- The current frontend expects a synchronous JSON response. For long videos, implement a job-based API (202 accepted + job ID + polling) before production use.
+- The current frontend uses a job-based API: upload returns HTTP 202 and a job ID, then the browser polls the authenticated status endpoint until completion.
 
 ## Current implementation boundary
 
-The frontend workspace and synchronous multipart adapter are implemented. An actual AI backend/provider is not deployed by GitHub Pages. Until a private backend is configured, the UI must not claim that visual understanding, transcription or automatic highlight selection has occurred.
+The frontend workspace, background-job polling adapter and Cloudflare Worker source are implemented. GitHub Pages hosts only the frontend; it does not deploy the AI backend. Until the Worker is deployed and its Gemini secrets are configured, the UI must not claim that visual understanding, speech analysis or automatic highlight selection has occurred.
 
 ## Included Cloudflare Worker
 
@@ -79,7 +79,7 @@ The current implementation accepts up to 12 video files, with a 12 MB per-file a
    Use a long random APP_TOKEN. Never commit either value. You can also add these in the Cloudflare dashboard under the Worker settings.
 5. Open `https://<your-worker>.workers.dev/health` and confirm `ready: true`. Then open the deployed editor, open AI 腳本與分鏡, paste the Worker URL and the same APP_TOKEN into the two fields.
 
-The Worker performs each video's analysis in its own Durable Object alarm step, then runs one combined edit-plan request in a final step. Each step persists progress before scheduling the next alarm, independent of the browser upload request. It is deliberately capped at 12 clips / 12 MB each / 45 MB total. Each job exposes `GET /jobs/{jobId}` for status and progress; the same Bearer APP_TOKEN is required. Temporary source videos are stored in R2 and deleted when processing ends. It does not yet provide resumable/chunked uploads, cancellation, or user-facing job history. Gemini API charges still apply, and long individual video analysis may be subject to provider limits.
+The Worker performs each video's analysis in its own Durable Object alarm step, then runs one combined edit-plan request in a final step. Each step persists progress before scheduling the next alarm, independent of the browser upload request. It is deliberately capped at 12 clips / 12 MB each / 45 MB total. Each job exposes `GET /jobs/{jobId}` for status and progress; the same Bearer APP_TOKEN is required. Temporary source videos are stored in R2 and deleted when processing ends. Job status records are retained for up to 24 hours and then automatically removed. The API returns only public job status fields, not internal R2 object keys. It does not yet provide resumable/chunked uploads, cancellation, or user-facing job history. Gemini API charges still apply, and long individual video analysis may be subject to provider limits.
 
 ## Health check
 
