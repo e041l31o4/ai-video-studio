@@ -281,7 +281,7 @@ export default function App(){
         names.push(outputName);
         if(preserveOriginalAudio){
           const audioName='audio_'+i+'.wav',duration=Math.max(.1,a.end-a.start);
-          const audioFades=['volume='+Math.max(0,Math.min(200,a.volume??100))/100,fadeIn>0?'afade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'afade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
+          const audioFades=[fadeIn>0?'afade=t=in:st=0:d='+fadeIn.toFixed(2):'',fadeOut>0?'afade=t=out:st='+Math.max(0,duration-fadeOut).toFixed(2)+':d='+fadeOut.toFixed(2):''].filter(Boolean);
           let audioCode=1;
           if(a.kind==='video'){
             try{audioCode=await engine.exec(['-ss',String(a.start),'-i',inputName,'-t',String(duration),'-vn',...(audioFades.length?['-af',audioFades.join(',')]:[]),'-ac','2','-ar','44100','-c:a','pcm_s16le',audioName]);}
