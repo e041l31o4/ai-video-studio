@@ -70,7 +70,7 @@ export default function App(){
     setBusy(true);setStatus('正在封裝專案與素材，檔案較大時請稍候…');
     try{
       const savedAssets=await Promise.all(assets.map(async asset=>({
-        id:asset.id,name:asset.file.name,type:asset.file.type,kind:asset.kind,duration:asset.duration,start:asset.start,end:asset.end,fadeIn:asset.fadeIn,fadeOut:asset.fadeOut,
+        id:asset.id,name:asset.file.name,type:asset.file.type,kind:asset.kind,duration:asset.duration,start:asset.start,end:asset.end,fadeIn:asset.fadeIn,fadeOut:asset.fadeOut,volume:asset.volume,timelineStart:asset.timelineStart,
         dataUrl:await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('讀取素材失敗'));reader.readAsDataURL(asset.file);})
       })));
       const project={format:'ai-video-studio-project',version:1,savedAt:new Date().toISOString(),settings:{ratio,quality,subtitle,cues,keepAudio,preserveOriginalAudio,originalVolume,musicVolume,subtitleSize,subtitleColor,subtitlePosition,subtitleBackground},assets:savedAssets};
@@ -90,7 +90,7 @@ export default function App(){
         if(typeof item.dataUrl!=='string'||typeof item.name!=='string'||!['video','image','audio'].includes(item.kind))throw new Error('專案素材資料不完整');
         const blob=await fetch(item.dataUrl).then(response=>response.blob());
         const media=new File([blob],item.name,{type:item.type||blob.type||'application/octet-stream'});
-        return {id:String(item.id||crypto.randomUUID()),file:media,url:URL.createObjectURL(media),kind:item.kind as Asset['kind'],duration:Number(item.duration)||0,start:Number(item.start)||0,end:Number(item.end)||0,fadeIn:Number(item.fadeIn)||0,fadeOut:Number(item.fadeOut)||0};
+        return {id:String(item.id||crypto.randomUUID()),file:media,url:URL.createObjectURL(media),kind:item.kind as Asset['kind'],duration:Number(item.duration)||0,start:Number(item.start)||0,end:Number(item.end)||0,fadeIn:Number(item.fadeIn)||0,fadeOut:Number(item.fadeOut)||0,volume:Number(item.volume??100),timelineStart:Number(item.timelineStart)||0};
       }));
       assets.forEach(asset=>URL.revokeObjectURL(asset.url));
       const settings=project.settings;
@@ -103,7 +103,7 @@ export default function App(){
       setSubtitleSize(Number(settings.subtitleSize??28));setSubtitleColor(/^#[0-9a-f]{6}$/i.test(settings.subtitleColor)?settings.subtitleColor:'#ffffff');
       if(['top','center','bottom'].includes(settings.subtitlePosition))setSubtitlePosition(settings.subtitlePosition);
       setSubtitleBackground(settings.subtitleBackground!==false);
-      restored.filter(asset=>asset.kind==='video'&&!asset.duration).forEach(asset=>{const probe=document.createElement('video');probe.preload='metadata';probe.src=asset.url;probe.onloadedmetadata=()=>updateDuration(asset.id,probe.duration);});
+      restored.filter(asset=>asset.kind!=='image'&&!asset.duration).forEach(asset=>{const probe=document.createElement(asset.kind==='video'?'video':'audio');probe.preload='metadata';probe.src=asset.url;probe.onloadedmetadata=()=>updateDuration(asset.id,probe.duration);});
       setStatus('專案已還原，共 '+restored.length+' 個素材。');
     }catch(error){console.error(error);setStatus('專案載入失敗：請確認是 AI Video Studio 匯出的有效 JSON 專案。');}
     finally{setBusy(false);}
@@ -111,9 +111,10 @@ export default function App(){
 
   function importFiles(list:FileList|null){
     if(!list)return;
-    const next=Array.from(list).filter(f=>/^(video|image|audio)\//.test(f.type)).map(file=>({id:crypto.randomUUID(),file,url:URL.createObjectURL(file),kind:(file.type.startsWith('video/')?'video':file.type.startsWith('image/')?'image':'audio') as Asset['kind'],duration:file.type.startsWith('image/')?5:0,start:0,end:file.type.startsWith('image/')?5:0,fadeIn:0,fadeOut:0}));
+    const next=Array.from(list).filter(f=>/^(video|image|audio)\//.test(f.type)).map(file=>({id:crypto.randomUUID(),file,url:URL.createObjectURL(file),kind:(file.type.startsWith('video/')?'video':file.type.startsWith('image/')?'image':'audio') as Asset['kind'],duration:file.type.startsWith('image/')?5:0,start:0,end:file.type.startsWith('image/')?5:0,fadeIn:0,fadeOut:0,volume:100,timelineStart:0}));
     setAssets(old=>[...old,...next]); if(next[0])setSelected(next[0].id);
     next.filter(a=>a.kind==='video').forEach(a=>{const probe=document.createElement('video');probe.preload='metadata';probe.src=a.url;probe.onloadedmetadata=()=>updateDuration(a.id,probe.duration);});
+    next.filter(a=>a.kind==='audio').forEach(a=>{const probe=document.createElement('audio');probe.preload='metadata';probe.src=a.url;probe.onloadedmetadata=()=>updateDuration(a.id,probe.duration);});
     setStatus(next.length?'已匯入 '+next.length+' 個素材':'沒有找到支援的素材格式');
   }
   function updateDuration(id:string,duration:number){setAssets(old=>old.map(a=>a.id===id?{...a,duration,end:a.end||duration}:a));}
