@@ -83,7 +83,7 @@ The Worker performs each video's analysis in its own Durable Object alarm step, 
 
 ## Health check
 
-After deploying, open `https://<your-worker>.workers.dev/health` in a browser. A successful response includes `ok: true`; `ready: true` means both Worker secrets are present. The editor also includes **測試 AI 後端連線** beside the endpoint settings. This check verifies Worker reachability and secret presence; it does not spend Gemini credits or run a video analysis.
+After deploying, open `https://<your-worker>.workers.dev/health` in a browser. A successful response includes `ok: true`; `ready: true` means both Worker secrets and the R2 / Durable Objects bindings are available. The editor also includes **測試 AI 後端連線** beside the endpoint settings. This check verifies Worker reachability and secret presence; it does not spend Gemini credits or run a video analysis.
 
 
 ## Background job API (Worker v2)
