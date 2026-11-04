@@ -1,0 +1,7 @@
+name = "ai-video-studio-storyboard"
+main = "src/index.ts"
+compatibility_date = "2026-11-04"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://e041l31o4.github.io"
