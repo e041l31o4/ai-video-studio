@@ -138,18 +138,22 @@ export default function App(){
   function applyStoryboard(){
     if(!storyboard.length){setStatus('請先完成 AI 分析並產生分鏡。');return;}
     const ordered=[...storyboard].sort((a,b)=>a.order-b.order);
-    const nextAssets=assets.map(a=>({...a}));
     let cursor=0;
-    ordered.forEach(scene=>{
-      const asset=nextAssets.find(a=>a.id===scene.assetId);
-      if(!asset)return;
-      asset.start=scene.sourceStart;asset.end=scene.sourceEnd;asset.timelineStart=Number(cursor.toFixed(2));asset.trackIndex=1;asset.fadeIn=.25;asset.fadeOut=.25;
-      cursor+=Math.max(.2,scene.sourceEnd-scene.sourceStart);
+    const clips:Asset[]=ordered.flatMap(scene=>{
+      const source=assets.find(a=>a.id===scene.assetId&&a.kind==='video');
+      if(!source)return [];
+      const start=Math.max(0,Math.min(source.duration,scene.sourceStart));
+      const end=Math.max(start+.2,Math.min(source.duration,scene.sourceEnd));
+      const clip:Asset={...source,id:crypto.randomUUID(),url:URL.createObjectURL(source.file),start,end,timelineStart:Number(cursor.toFixed(2)),trackIndex:1,fadeIn:.25,fadeOut:.25};
+      cursor+=Math.max(.2,end-start);
+      return [clip];
     });
-    setAssets(nextAssets);setSelected(ordered[0]?.assetId||'');setPreviewTime(0);setIsPlaying(false);
+    if(!clips.length){setStatus('分鏡中的原始影片已不存在，請重新分析。');return;}
+    assets.filter(a=>a.kind==='video').forEach(a=>URL.revokeObjectURL(a.url));
+    setAssets([...assets.filter(a=>a.kind!=='video'),...clips]);setSelected(clips[0].id);setPreviewTime(0);setIsPlaying(false);
     const script=ordered.map(scene=>scene.voiceover).filter(Boolean);
-    if(script.length)syncSubtitle(script.join('\n'));
-    setShowStoryboard(false);setStatus('已將 AI 分鏡排序套用至 V1 時間軸。你可以預覽並微調後輸出。');
+    if(script.length)syncSubtitle(script.join('\\n'));
+    setShowStoryboard(false);setStatus('已將 '+clips.length+' 個 AI 精華片段依分鏡順序建立至 V1 時間軸（原片未覆蓋，素材清單以剪輯片段取代）。');
   }
   async function saveProject(){
     if(!assets.length){setStatus('目前沒有素材可儲存。');return;}
