@@ -96,3 +96,10 @@
 .fadeControls .clipVolume{width:100px;accent-color:#8290ff;cursor:pointer}
 .fadeControls label b{color:#dce4f7;font-size:9px;min-width:30px}
 @media(max-width:680px){.fadeControls .clipVolume{width:100%;flex:1 1 100%}}
+
+
+/* Visual clips are positioned on an absolute time ruler; overlapping clips composite in export order. */
+.visualLane{position:relative;display:block;min-height:43px;height:43px;overflow:hidden;padding:0;background:#111a26;border:1px solid #29364b;border-radius:6px}
+.visualLane .clipBlock{position:absolute;top:2px;bottom:2px;min-width:0;max-width:none;flex:none;height:auto}
+.visualLane .clipBlock span{vertical-align:middle}
+@media(max-width:680px){.visualLane{height:43px;min-height:43px}.visualLane .clipBlock{font-size:8px;padding-left:18px;padding-right:18px}}
