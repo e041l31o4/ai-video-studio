@@ -91,3 +91,8 @@
 
 .shortcutHint{color:#7f8da4;font-size:9px;white-space:nowrap}
 @media(max-width:900px){.shortcutHint{width:100%;white-space:normal;line-height:1.5}}
+
+
+.fadeControls .clipVolume{width:100px;accent-color:#8290ff;cursor:pointer}
+.fadeControls label b{color:#dce4f7;font-size:9px;min-width:30px}
+@media(max-width:680px){.fadeControls .clipVolume{width:100%;flex:1 1 100%}}
