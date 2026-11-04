@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
-type Asset = { id:string; file:File; url:string; kind:'video'|'image'|'audio'; duration:number; start:number; end:number; fadeIn:number; fadeOut:number };
+type Asset = { id:string; file:File; url:string; kind:'video'|'image'|'audio'; duration:number; start:number; end:number; fadeIn:number; fadeOut:number; volume:number; timelineStart:number };
 type Cue = { id:string; text:string; start:number; end:number };
 const time = (n:number) => { if(!Number.isFinite(n)) return '00:00'; return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0'); };
 async function makeSubtitlePng(cue:Cue,width:number,height:number,size:number,color:string,position:string,background:boolean){
