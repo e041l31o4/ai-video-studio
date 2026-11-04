@@ -155,8 +155,7 @@ export default function App(){
     if(!visualAssets.length)return;
     const target=visualAssets.filter(asset=>targetTime>=asset.timelineStart&&targetTime<=asset.timelineStart+Math.max(0,asset.end-asset.start)).sort((x,y)=>y.timelineStart-x.timelineStart)[0]||[...visualAssets].sort((x,y)=>Math.abs((x.timelineStart+Math.max(0,x.end-x.start)/2)-targetTime)-Math.abs((y.timelineStart+Math.max(0,y.end-y.start)/2)-targetTime))[0];
     setSelected(target.id);
-    if(target.kind==='video')setPendingSeek(targetTime);
-    else setPreviewTime(targetTime);
+    setPendingSeek(targetTime);
   }
   function duplicateSelectedClip(){
     const target=assets.find(a=>a.id===selected&&a.kind!=='audio');
