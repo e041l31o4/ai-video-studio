@@ -39,6 +39,7 @@ interface StorageLike {
   put<T>(key: string, value: T): Promise<void>;
   setAlarm(timestamp: number): Promise<void>;
   deleteAlarm(): Promise<void>;
+  delete(key: string): Promise<void>;
 }
 interface DurableObjectStateLike {
   storage: StorageLike;
@@ -193,7 +194,19 @@ export class StoryboardJob {
   }
   async alarm(): Promise<void> {
     const job = await this.state.storage.get<JobRecord>("job");
-    if (!job || job.status === "completed" || job.status === "failed") return;
+    if (!job) return;
+    if (job.status === "completed" || job.status === "failed") {
+      const retentionMs = 24 * 60 * 60 * 1000;
+      const cleanupAt = job.updatedAt + retentionMs;
+      if (Date.now() >= cleanupAt) {
+        await this.state.storage.delete("job");
+        await this.state.storage.delete("analyses");
+        await this.state.storage.deleteAlarm();
+      } else {
+        await this.state.storage.setAlarm(cleanupAt);
+      }
+      return;
+    }
     const save = async (patch: Partial<JobRecord>) => {
       Object.assign(job, patch, { updatedAt: Date.now() });
       await this.state.storage.put("job", job);
@@ -226,6 +239,7 @@ export class StoryboardJob {
       const latest = await this.state.storage.get<JobRecord>("job");
       if (latest?.status === "completed" || latest?.status === "failed") {
         await this.env.STORYBOARD_MEDIA.delete(job.files.map(file => file.key)).catch(() => undefined);
+        await this.state.storage.setAlarm(latest.updatedAt + 24 * 60 * 60 * 1000);
       }
     }
   }
@@ -267,7 +281,20 @@ export default {
       const id = jobMatch[1];
       const stub = env.STORYBOARD_JOBS.get(env.STORYBOARD_JOBS.idFromName(id));
       const response = await stub.fetch("https://job.internal/");
-      return respond(await response.json(), response.status);
+      const job = await response.json() as JobRecord;
+      if (!response.ok) return respond({ error: "Job not found" }, response.status);
+      return respond({
+        jobId: job.id,
+        status: job.status,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+        progress: job.progress,
+        total: job.total,
+        currentFile: job.currentFile,
+        message: job.message,
+        result: job.result,
+        error: job.error,
+      }, 200);
     }
     if (request.method !== "POST" || pathname !== "") return respond({ error: "Method not allowed" }, 405);
     if (!env.STORYBOARD_MEDIA || !env.STORYBOARD_JOBS) return respond({ error: "Worker storage bindings are not configured" }, 503);
