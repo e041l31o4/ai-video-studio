@@ -3,7 +3,7 @@
 @media(max-width:1000px){.layout{grid-template-columns:180px minmax(0,1fr)}.main{padding:22px 18px}.editorGrid{grid-template-columns:1fr}.stage{min-height:310px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.settings .panelHead,.settings textarea,.settings .note,.settings .summary,.settings .full,.settings .progress{grid-column:1/-1}}
 @media(max-width:680px){.topbar{height:auto;min-height:64px;padding:11px 12px;gap:6px}.brand{font-size:11px}.brandIcon{width:30px;height:30px}.topRight{gap:5px}.local{display:none}.topRight .btn{font-size:9px;padding:8px}.layout{display:block}.sidebar{display:none}.main{padding:20px 11px}.heading{display:block}.heading h1{font-size:21px}.project{display:inline-block;margin-top:12px}.stage{min-height:260px}.stage.vertical video,.stage.vertical img{height:300px}.settings{display:block}.asset{gap:7px;padding:8px}.trim{flex-wrap:wrap}.trim input{width:60px}.assetActions button{width:22px;height:22px}}
 
-.timelineBoard{background:#0f141e;border:1px solid #293346;border-radius:8px;padding:12px;margin-bottom:12px;overflow:hidden}
+.timelineBoard{background:#0f141e;border:1px solid #293346;border-radius:8px;padding:12px;margin-bottom:12px;overflow-x:auto;overflow-y:hidden}
 .ruler{display:flex;justify-content:space-between;color:#78869d;font-size:9px;border-bottom:1px solid #2b3547;padding:0 2px 8px;margin-bottom:9px}
 .trackLabel{font-size:9px;letter-spacing:.12em;color:#9ba8c0;margin:7px 0 5px}
 .trackLane{display:flex;gap:5px;min-height:43px;overflow-x:auto;padding-bottom:4px}
@@ -118,3 +118,5 @@
 .previewTransport{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .previewTransport b{font-size:10px;color:#dfe6f8;font-variant-numeric:tabular-nums;margin-left:4px}
 @media(max-width:680px){.previewFoot{align-items:flex-start;gap:8px;flex-direction:column}.previewTransport{gap:4px}}
+
+.audioPreviewPool{display:none!important}.visualLane .clipBlock{cursor:grab;touch-action:pan-y}.visualLane .clipBlock:active{cursor:grabbing}
