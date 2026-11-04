@@ -49,8 +49,8 @@ export default function App(){
     setBusy(true);setProgress(0);
     try{
       const engine=await loadEngine();
-      const width=ratio==='9:16'?(quality==='4k'?2160:1080):(quality==='4k'?3840:1920);
-      const height=ratio==='9:16'?(quality==='4k'?3840:1920):(quality==='4k'?2160:1080);
+      const width=ratio==='9:16'?(quality==='4k'?2160:1080):ratio==='1:1'?(quality==='4k'?2160:1080):(quality==='4k'?3840:1920);
+      const height=ratio==='9:16'?(quality==='4k'?3840:1920):ratio==='1:1'?(quality==='4k'?2160:1080):(quality==='4k'?2160:1080);
       const names:string[]=[];
       for(let i=0;i<clips.length;i++){
         const a=clips[i],ext=(a.file.name.split('.').pop()||'mp4').replace(/[^a-z0-9]/gi,'');
