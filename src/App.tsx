@@ -143,8 +143,23 @@ export default function App(){
       form.append('assets',JSON.stringify(videos.map(a=>({id:a.id,name:a.file.name,duration:a.duration,mimeType:a.file.type}))));
       videos.forEach((asset,index)=>form.append('videos',asset.file,asset.file.name));
       const response=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+aiAccessToken.trim()},body:form});
-      if(!response.ok)throw new Error('AI 服務回應 '+response.status+'：'+(await response.text()).slice(0,240));
-      const data=await response.json();
+      let data=await response.json();
+      if(!response.ok)throw new Error('AI 服務回應 '+response.status+'：'+String(data.error||'請確認後端設定。').slice(0,240));
+      if(response.status===202&&data.jobId){
+        const jobId=String(data.jobId);
+        setStatus('已建立 AI 背景分析任務，正在等待分析開始…');
+        let finished=false;
+        for(let attempt=0;attempt<720;attempt++){
+          await new Promise(resolve=>window.setTimeout(resolve,2500));
+          const poll=await fetch(endpoint+'/jobs/'+encodeURIComponent(jobId),{headers:{Authorization:'Bearer '+aiAccessToken.trim()}});
+          const job=await poll.json();
+          if(!poll.ok)throw new Error('讀取 AI 任務進度失敗：'+String(job.error||poll.status));
+          if(job.status==='failed')throw new Error(job.error||'AI 背景分析失敗');
+          if(job.status==='completed'&&job.result){data=job.result;finished=true;break;}
+          setStatus('AI 背景分析中：'+Number(job.progress||0)+' / '+Number(job.total||videos.length)+' 段影片。'+String(job.message||'請稍候…'));
+        }
+        if(!finished)throw new Error('AI 分析時間較長，任務仍可能在後端執行。請稍後重新查看任務狀態。');
+      }
       if(!Array.isArray(data.scenes)||!data.scenes.length)throw new Error('AI 回傳格式錯誤：找不到 scenes 分鏡陣列。');
       const normalized=data.scenes.map((scene:any,index:number)=>{
         const asset=videos.find(a=>a.id===scene.assetId);
