@@ -82,3 +82,9 @@
 .audioTrimHandle.left{left:0;border-radius:5px 0 0 5px}
 .audioTrimHandle.right{right:0;border-radius:0 5px 5px 0}
 .audioTrimHandle:hover{background:#fff}
+
+.clipBlock{position:relative;padding-left:22px;padding-right:22px;touch-action:pan-y}
+.videoTrimHandle{position:absolute;z-index:6;top:0;bottom:0;width:9px;background:#b9c7ff;opacity:.92;cursor:ew-resize;touch-action:none}
+.videoTrimHandle.left{left:0;border-radius:5px 0 0 5px}
+.videoTrimHandle.right{right:0;border-radius:0 5px 5px 0}
+.videoTrimHandle:hover{background:#fff}
