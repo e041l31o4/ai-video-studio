@@ -129,7 +129,7 @@ export default function App(){
         }else finalArgs.push('-map','0:v:0','-map',musicIndex+':a:0','-filter:a','volume='+musicVolume/100);
         finalArgs.push('-c:v','copy','-c:a','aac','-b:a','192k','-shortest');
       }else if(preserveOriginalAudio&&audioNames.length){
-        finalArgs.push('-map','0:v:0','-map',(audioInputIndex-1)+':a:0','-c:v','copy','-c:a','aac','-b:a','192k','-shortest');
+        finalArgs.push('-map','0:v:0','-map',(audioInputIndex-1)+':a:0','-filter:a','volume='+originalVolume/100,'-c:v','copy','-c:a','aac','-b:a','192k','-shortest');
       }else finalArgs.push('-map','0:v:0','-an','-c:v','copy');
       finalArgs.push('-movflags','+faststart','final.mp4');
       const code=await engine.exec(finalArgs);if(code!==0)throw new Error('影片合併失敗');
