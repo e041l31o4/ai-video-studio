@@ -244,10 +244,12 @@ export default {
     if (request.method === "OPTIONS") {
       return headers["Access-Control-Allow-Origin"] ? new Response(null, { status: 204, headers }) : new Response(null, { status: 403 });
     }
-    if (!headers["Access-Control-Allow-Origin"]) return respond({ error: "Origin not allowed" }, 403);
     const url = new URL(request.url);
-    const pathname = url.pathname.replace(/\/$/, "");
-    if (request.method === "GET" && pathname.endsWith("/health")) {
+    const pathname = url.pathname.replace(/\\/$/, "");
+    const isHealthCheck = request.method === "GET" && pathname.endsWith("/health");
+    // Health is intentionally public for deployment diagnostics; all media/job routes remain origin- and token-protected.
+    if (!headers["Access-Control-Allow-Origin"] && !isHealthCheck) return respond({ error: "Origin not allowed" }, 403);
+    if (isHealthCheck) {
       return respond({
         ok: true,
         service: "ai-video-studio-storyboard",
