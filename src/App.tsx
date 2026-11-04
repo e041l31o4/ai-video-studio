@@ -65,6 +65,7 @@ export default function App(){
   const total=useMemo(()=>visualAssets.reduce((v,a)=>v+Math.max(0,a.end-a.start),0),[visualAssets]);
 
   useEffect(()=>{setPreviewTime(currentOffset);},[current?.id,currentOffset]);
+  useEffect(()=>{if(videoRef.current)videoRef.current.volume=Math.max(0,Math.min(1,(current?.volume??100)/100));},[current?.id,current?.volume]);
   useEffect(()=>{
     const onKeyDown=(event:KeyboardEvent)=>{
       const target=event.target as HTMLElement|null;
