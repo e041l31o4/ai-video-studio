@@ -253,7 +253,7 @@ export default function App(){
         for(let i=0;i<soundtracks.length;i++){
           const soundtrack=soundtracks[i],audioName='soundtrack_'+i+'.'+(soundtrack.file.name.split('.').pop()||'mp3').replace(/[^a-z0-9]/gi,'');
           await engine.writeFile(audioName,await fetchFile(soundtrack.file));
-          finalArgs.push('-stream_loop','-1','-i',audioName);
+          finalArgs.push('-stream_loop','-1','-ss',String(Math.max(0,soundtrack.start)),'-i',audioName);
           musicIndexes.push(nextInput++);
         }
       }
@@ -272,7 +272,7 @@ export default function App(){
       let audioMap='';
       const audioInputs:string[]=[];
       if(originalIndex>=0){filters.push('['+originalIndex+':a]volume='+originalVolume/100+'[orig]');audioInputs.push('[orig]');}
-      musicIndexes.forEach((index,i)=>{const label='music'+i;filters.push('['+index+':a]volume='+musicVolume/100+'['+label+']');audioInputs.push('['+label+']');});
+      musicIndexes.forEach((index,i)=>{const track=soundtracks[i],label='music'+i,trackLength=Math.max(0,Math.min(total-track.timelineStart,track.end-track.start)),delay=Math.max(0,Math.min(total,track.timelineStart))*1000,level=(musicVolume/100)*(Math.max(0,Math.min(200,track.volume))/100);filters.push('['+index+':a]atrim=duration='+trackLength.toFixed(3)+',asetpts=PTS-STARTPTS,volume='+level+',adelay='+Math.round(delay)+'|'+Math.round(delay)+'['+label+']');audioInputs.push('['+label+']');});
       if(audioInputs.length===1){audioMap=audioInputs[0];}
       else if(audioInputs.length>1){filters.push(audioInputs.join('')+'amix=inputs='+audioInputs.length+':duration=longest:dropout_transition=2[aout]');audioMap='[aout]';}
       if(filters.length)finalArgs.push('-filter_complex',filters.join(';'));
