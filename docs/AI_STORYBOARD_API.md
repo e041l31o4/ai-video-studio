@@ -64,4 +64,19 @@ Deploy it from the `worker` directory with Wrangler:
 3. Run `wrangler deploy`.
 4. Paste the resulting `workers.dev` URL and the same APP_TOKEN into the AI Storyboard panel.
 
-The included first implementation accepts up to 12 video files, with a 15 MB per-file inline limit. It analyzes each video separately, then generates a combined storyboard. Larger files need a future resumable upload / Gemini Files API implementation. Cloudflare Worker deployment and Gemini credentials are external prerequisites; GitHub Pages cannot host private API secrets.
+The included first implementation accepts up to 12 video files, with a 12 MB per-file and 45 MB combined upload limit. It analyzes each video separately, then generates a combined storyboard. Larger files need a future resumable upload / Gemini Files API implementation. Cloudflare Worker deployment and Gemini credentials are external prerequisites; GitHub Pages cannot host private API secrets.
+
+## Deploy with GitHub Actions
+
+1. In Cloudflare, create an API token with **Workers Scripts: Edit** and the required account access.
+2. In this GitHub repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+3. In Cloudflare Workers & Pages, create or select the account. From a terminal with Wrangler authenticated, run from the repository's `worker` folder:
+   - `npx wrangler secret put GEMINI_API_KEY`
+   - `npx wrangler secret put APP_TOKEN`
+   Use a long random APP_TOKEN. Never commit either value.
+4. Run **Actions → Deploy AI Storyboard Worker → Run workflow**. The deployment log prints the Worker URL (usually `https://ai-video-studio-storyboard.<subdomain>.workers.dev`).
+5. Open the deployed editor, open AI 腳本與分鏡, paste that Worker URL and the same APP_TOKEN into the two fields.
+
+The Worker currently performs sequential per-video analysis and then one combined edit-plan request. A batch of many long clips can take time and incur Gemini API charges. The first release is deliberately capped at 12 clips / 12 MB each / 45 MB total. It does not yet provide resumable uploads or background job progress. Cloudflare Worker CPU limits and request duration depend on the Cloudflare plan; use a paid Workers plan for realistic multi-clip production testing.
