@@ -79,7 +79,7 @@ The current implementation accepts up to 12 video files, with a 12 MB per-file a
 4. Run **Actions → Deploy AI Storyboard Worker → Run workflow**. The deployment log prints the Worker URL (usually `https://ai-video-studio-storyboard.<subdomain>.workers.dev`).
 5. Open the deployed editor, open AI 腳本與分鏡, paste that Worker URL and the same APP_TOKEN into the two fields.
 
-The Worker performs sequential per-video analysis and then one combined edit-plan request in a Durable Object alarm, independent of the browser upload request. It is deliberately capped at 12 clips / 12 MB each / 45 MB total. Each job exposes `GET /jobs/{jobId}` for status and progress; the same Bearer APP_TOKEN is required. Temporary source videos are stored in R2 and deleted when processing ends. It does not yet provide resumable/chunked uploads, cancellation, or user-facing job history. Gemini API charges still apply, and long individual video analysis may be subject to provider limits.
+The Worker performs each video's analysis in its own Durable Object alarm step, then runs one combined edit-plan request in a final step. Each step persists progress before scheduling the next alarm, independent of the browser upload request. It is deliberately capped at 12 clips / 12 MB each / 45 MB total. Each job exposes `GET /jobs/{jobId}` for status and progress; the same Bearer APP_TOKEN is required. Temporary source videos are stored in R2 and deleted when processing ends. It does not yet provide resumable/chunked uploads, cancellation, or user-facing job history. Gemini API charges still apply, and long individual video analysis may be subject to provider limits.
 
 ## Health check
 
