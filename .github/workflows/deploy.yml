@@ -20,6 +20,8 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+      - name: Type-check Cloudflare Worker
+        run: npm run check:worker
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
