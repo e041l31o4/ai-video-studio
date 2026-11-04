@@ -36,3 +36,10 @@
 .subtitleLane{position:relative;height:38px;min-height:38px;overflow-x:auto;overflow-y:hidden;background:#111a20;border:1px solid #28443e;border-radius:6px;padding:0}
 .subtitleBlock{position:absolute;top:4px;height:28px;min-width:28px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid #397b69;border-radius:5px;background:linear-gradient(110deg,#245746,#286b5b);color:#e1fff3;padding:0 7px;font:inherit;font-size:9px;text-align:left;cursor:pointer}
 .subtitleBlock:hover{border-color:#9ae4c8;background:#347e68}
+
+.asset[draggable=true],.clipBlock[draggable=true]{cursor:grab}
+.asset[draggable=true]:active,.clipBlock[draggable=true]:active{cursor:grabbing}
+.asset[draggable=true]:hover{border-color:#687ba9}
+.app{min-height:100vh}
+.dropzone{transition:border-color .2s,background .2s}
+.dropzone:hover{border-color:#9aa8ff;background:#171f30}
