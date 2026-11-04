@@ -133,44 +133,35 @@ function validateScenes(raw: any, assets: AssetMeta[]) {
     : [];
   return { scenes, warnings, overallScript: String(raw.overallScript || "").slice(0, 6000) };
 }
-async function processJob(job: JobRecord, env: Env, progress: (patch: Partial<JobRecord>) => Promise<void>) {
-  const analyses: any[] = [];
-  for (let index = 0; index < job.files.length; index++) {
-    const stored = job.files[index];
-    await progress({
-      status: "processing",
-      progress: index,
-      currentFile: stored.name,
-      message: "正在分析第 " + (index + 1) + " / " + job.files.length + " 段影片",
-    });
-    const object = await env.STORYBOARD_MEDIA.get(stored.key);
-    if (!object) throw new Error("暫存影片不存在或已逾期：" + stored.name);
-    const bytes = new Uint8Array(await object.arrayBuffer());
-    let binary = "";
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    const asset = job.assets[index];
-    const analysis = await gemini(env, [
-      {
-        text:
-          "你是專業短影音剪輯師。分析這一段影片，輸出 JSON：summary(畫面內容摘要)、segments(陣列，每段含 start、end、visual、speech、qualityScore 0-100、keepReason)。時間必須是影片內秒數，不能超出 " +
-          Number(asset.duration) +
-          " 秒。優先保留穩定清晰、有資訊價值的鏡頭，避開晃動、空白、重複。若聽到語音，盡量整理原意，不可捏造。影片檔名：" +
-          String(asset.name || stored.name).slice(0, 200),
-      },
-      { inline_data: { mime_type: stored.mimeType, data: btoa(binary) } },
-    ]);
-    analyses.push({
-      assetId: asset.id,
-      name: String(asset.name || stored.name),
-      duration: Number(asset.duration),
-      summary: analysis.summary,
-      segments: Array.isArray(analysis.segments) ? analysis.segments.slice(0, 40) : [],
-    });
-    await progress({ progress: index + 1, message: "已完成 " + (index + 1) + " / " + job.files.length + " 段影片分析" });
+async function analyzeOneVideo(job: JobRecord, index: number, env: Env) {
+  const stored = job.files[index];
+  const object = await env.STORYBOARD_MEDIA.get(stored.key);
+  if (!object) throw new Error("暫存影片不存在或已逾期：" + stored.name);
+  const bytes = new Uint8Array(await object.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
   }
-  await progress({ currentFile: "正在整合腳本與剪輯順序", message: "影片分析完成，AI 正在編排完整故事線" });
+  const asset = job.assets[index];
+  const analysis = await gemini(env, [
+    {
+      text:
+        "你是專業短影音剪輯師。分析這一段影片，輸出 JSON：summary(畫面內容摘要)、segments(陣列，每段含 start、end、visual、speech、qualityScore 0-100、keepReason)。時間必須是影片內秒數，不能超出 " +
+        Number(asset.duration) +
+        " 秒。優先保留穩定清晰、有資訊價值的鏡頭，避開晃動、空白、重複。若聽到語音，盡量整理原意，不可捏造。影片檔名：" +
+        String(asset.name || stored.name).slice(0, 200),
+    },
+    { inline_data: { mime_type: stored.mimeType, data: btoa(binary) } },
+  ]);
+  return {
+    assetId: asset.id,
+    name: String(asset.name || stored.name),
+    duration: Number(asset.duration),
+    summary: analysis.summary,
+    segments: Array.isArray(analysis.segments) ? analysis.segments.slice(0, 40) : [],
+  };
+}
+async function buildStoryboard(job: JobRecord, analyses: any[], env: Env) {
   const plan = await gemini(env, [{
     text:
       "你是資深影音導演。根據下列每段影片的實際視覺與語音分析，為使用者剪輯一支完整短影音。不可捏造房屋規格、價格、地點、學區或任何事實；不確定的資訊以中性旁白或 warnings 提醒。遵守使用者要求：" +
@@ -180,7 +171,6 @@ async function processJob(job: JobRecord, env: Env, progress: (patch: Partial<Jo
   }]);
   return validateScenes(plan, job.assets);
 }
-
 export class StoryboardJob {
   private state: DurableObjectStateLike;
   private env: Env;
@@ -209,13 +199,34 @@ export class StoryboardJob {
       await this.state.storage.put("job", job);
     };
     try {
-      await save({ status: "processing", message: "AI 背景分析啟動中" });
-      const result = await processJob(job, this.env, save);
+      await save({ status: "processing" });
+      const analyses = (await this.state.storage.get<any[]>("analyses")) || [];
+      if (job.progress < job.total) {
+        const index = job.progress;
+        await save({
+          currentFile: job.files[index].name,
+          message: "正在分析第 " + (index + 1) + " / " + job.total + " 段影片",
+        });
+        const analysis = await analyzeOneVideo(job, index, this.env);
+        analyses[index] = analysis;
+        await this.state.storage.put("analyses", analyses);
+        await save({
+          progress: index + 1,
+          message: "已完成 " + (index + 1) + " / " + job.total + " 段影片分析",
+        });
+        await this.state.storage.setAlarm(Date.now() + 1000);
+        return;
+      }
+      await save({ currentFile: "正在整合腳本與剪輯順序", message: "影片分析完成，AI 正在編排完整故事線" });
+      const result = await buildStoryboard(job, analyses, this.env);
       await save({ status: "completed", progress: job.total, result, currentFile: undefined, message: "AI 分析完成" });
     } catch (error) {
       await save({ status: "failed", error: error instanceof Error ? error.message.slice(0, 1000) : "AI 分析失敗", message: "分析失敗" });
     } finally {
-      await this.env.STORYBOARD_MEDIA.delete(job.files.map(file => file.key)).catch(() => undefined);
+      const latest = await this.state.storage.get<JobRecord>("job");
+      if (latest?.status === "completed" || latest?.status === "failed") {
+        await this.env.STORYBOARD_MEDIA.delete(job.files.map(file => file.key)).catch(() => undefined);
+      }
     }
   }
 }
