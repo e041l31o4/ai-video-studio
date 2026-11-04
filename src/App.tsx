@@ -122,6 +122,8 @@ export default function App(){
         const media=new File([blob],item.name,{type:item.type||blob.type||'application/octet-stream'});
         return {id:String(item.id||crypto.randomUUID()),file:media,url:URL.createObjectURL(media),kind:item.kind as Asset['kind'],duration:Number(item.duration)||0,start:Number(item.start)||0,end:Number(item.end)||0,fadeIn:Number(item.fadeIn)||0,fadeOut:Number(item.fadeOut)||0,volume:Number(item.volume??100),timelineStart:Number(item.timelineStart)||0};
       }));
+      const legacyVisual=restored.filter(asset=>asset.kind!=='audio');
+      if(legacyVisual.length>1&&legacyVisual.every(asset=>asset.timelineStart===0)){let cursor=0;legacyVisual.forEach(asset=>{asset.timelineStart=cursor;cursor+=Math.max(0,asset.end-asset.start);});}
       assets.forEach(asset=>URL.revokeObjectURL(asset.url));
       const settings=project.settings;
       setAssets(restored);setSelected(restored.find(asset=>asset.kind!=='audio')?.id||restored[0]?.id||'');
