@@ -33,10 +33,12 @@ export default {
    const files=form.getAll("videos").filter((x):x is File=>x instanceof File);
    if(!assets.length||assets.length!==files.length)return respond({error:"影片清單與檔案數量不一致"},400);
    if(files.length>12)return respond({error:"單次最多分析 12 段影片"},413);
+   const totalBytes=files.reduce((sum,file)=>sum+file.size,0);
+   if(totalBytes>45*1024*1024)return respond({error:"全部影片合計不可超過 45MB，請分批或壓縮素材後再分析。"},413);
    const analyses:any[]=[];
    for(let i=0;i<files.length;i++){
     const file=files[i];
-    if(file.size>15*1024*1024)return respond({error:"單段影片超過 15MB inline 分析限制："+file.name+"。請先壓縮影片或切成較小片段。"},413);
+    if(file.size>12*1024*1024)return respond({error:"單段影片超過 12MB inline 分析限制："+file.name+"。請先壓縮影片或切成較小片段。"},413);
     if(!file.type.startsWith("video/"))return respond({error:"不支援的影片格式："+file.name},400);
     const bytes=new Uint8Array(await file.arrayBuffer());
     let binary="";for(let j=0;j<bytes.length;j+=0x8000)binary+=String.fromCharCode(...bytes.subarray(j,j+0x8000));
